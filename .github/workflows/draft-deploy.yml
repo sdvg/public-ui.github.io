@@ -1,0 +1,141 @@
+name: Netlify Draft Deploy
+
+env:
+  github-registry: https://npm.pkg.github.com
+  github-token: ${{ secrets.GITHUB_TOKEN }}
+  npmjs-registry: https://registry.npmjs.org
+  scope: public-ui
+  token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  deploy:
+    if: ${{ github.event.pull_request.base.repo.clone_url == github.event.pull_request.head.repo.clone_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # https://github.com/pnpm/action-setup#use-cache-to-reduce-installation-time
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "${{env.npmjs-registry}}"
+          scope: "@${{env.scope}}"
+
+      - uses: pnpm/action-setup@v4
+        id: pnpm-install
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store
+
+      - name: Build Docs
+        run: |
+          pnpm install --no-frozen-lockfile
+          npm run build
+
+      # Fetching apps from GitHub packages is disabled for the fork - can be reenabled for public-ui repository.
+
+      #      - uses: actions/setup-node@v4
+      #        with:
+      #          node-version: 20
+      #          registry-url: "${{env.github-registry}}"
+      #          scope: "@${{env.scope}}"
+      #
+      #      - name: Download designer (v1)
+      #        env:
+      #          NODE_AUTH_TOKEN: ${{env.token}}
+      #        run: |
+      #          rm -rf package *.tgz
+      #          npm pack @${{env.scope}}/designer@^1
+      #          tar -xzvf public-ui-designer-*.tgz
+      #
+      #          rm -rf build/v1/designer
+      #          mkdir -p build/v1
+      #          mv package/dist build/v1/designer
+      #
+      #          rm -rf package *.tgz
+      #
+      #      - name: Download sample react (v1)
+      #        env:
+      #          NODE_AUTH_TOKEN: ${{env.token}}
+      #        run: |
+      #          rm -rf package *.tgz
+      #          npm pack @${{env.scope}}/sample-react@^1
+      #          tar -xzvf public-ui-sample-react-*.tgz
+      #
+      #          rm -rf build/v1/sample-react
+      #          mkdir -p build/v1
+      #          mv package/dist build/v1/sample-react
+      #
+      #          rm -rf package *.tgz
+      #
+      #      - name: Download designer (v2)
+      #        env:
+      #          NODE_AUTH_TOKEN: ${{env.token}}
+      #        run: |
+      #          rm -rf package *.tgz
+      #          npm pack @${{env.scope}}/designer@^2
+      #          tar -xzvf public-ui-designer-*.tgz
+      #
+      #          rm -rf build/v2/designer
+      #          mkdir -p build/v2
+      #          mv package/dist build/v2/designer
+      #
+      #          rm -rf package *.tgz
+      #
+      #      - name: Download sample react (v2)
+      #        env:
+      #          NODE_AUTH_TOKEN: ${{env.token}}
+      #        run: |
+      #          rm -rf package *.tgz
+      #          npm pack @${{env.scope}}/sample-react@^2
+      #          tar -xzvf public-ui-sample-react-*.tgz
+      #
+      #          rm -rf build/v2/sample-react
+      #          mkdir -p build/v2
+      #          mv package/dist build/v2/sample-react
+      #
+      #          rm -rf package *.tgz
+
+      - name: Netlify Deploy
+        uses: netlify/actions/cli@master
+        id: netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
+        with:
+          args: deploy --dir=build
+
+      - name: Find comment
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: Netlify Draft Deployment
+
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Netlify Draft Deployment
+            URL: ${{ steps.netlify.outputs.NETLIFY_URL }}
+            Logs: ${{ steps.netlify.outputs.NETLIFY_LOGS_URL }}
+          edit-mode: replace
