@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Artifacts
-        uses: ./.github/actions/build-artifacts/action.yml
+        uses: ./.github/actions/build-artifacts
 
       - name: Netlify Deploy
         uses: netlify/actions/cli@master
