@@ -16,6 +16,9 @@ jobs:
     if: ${{ github.event.pull_request.base.repo.clone_url == github.event.pull_request.head.repo.clone_url }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Build Artifacts
         uses: ./.github/actions/build-artifacts/action.yml
 
