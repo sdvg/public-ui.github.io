@@ -12,13 +12,12 @@ on:
   pull_request:
 
 jobs:
-  build-artifacts:
-    uses: ./github/actions/build-artifacts/action.yml
-    secrets: inherit
-
-  deploy:
+  build-and-deploy:
     if: ${{ github.event.pull_request.base.repo.clone_url == github.event.pull_request.head.repo.clone_url }}
     runs-on: ubuntu-latest
+    steps:
+      - name: Build Artifacts
+        uses: ./github/actions/build-artifacts/action.yml
       - name: Netlify Deploy
         uses: netlify/actions/cli@master
         id: netlify
