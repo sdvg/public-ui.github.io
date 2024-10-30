@@ -17,7 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build Artifacts
-        uses: ./github/actions/build-artifacts/action.yml
+        uses: ./.github/actions/build-artifacts/action.yml
+
       - name: Netlify Deploy
         uses: netlify/actions/cli@master
         id: netlify
